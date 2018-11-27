@@ -1,0 +1,14 @@
+C:\Users\User\Documents\Dim4\Dim4\bin\Debug\Dim4.exe.config
+C:\Users\User\Documents\Dim4\Dim4\bin\Debug\Dim4.exe
+C:\Users\User\Documents\Dim4\Dim4\bin\Debug\Dim4.pdb
+C:\Users\User\Documents\Dim4\Dim4\bin\Debug\MathNet.Numerics.dll
+C:\Users\User\Documents\Dim4\Dim4\bin\Debug\sfmlnet-audio-2.dll
+C:\Users\User\Documents\Dim4\Dim4\bin\Debug\sfmlnet-graphics-2.dll
+C:\Users\User\Documents\Dim4\Dim4\bin\Debug\sfmlnet-system-2.dll
+C:\Users\User\Documents\Dim4\Dim4\bin\Debug\sfmlnet-window-2.dll
+C:\Users\User\Documents\Dim4\Dim4\bin\Debug\MathNet.Numerics.xml
+C:\Users\User\Documents\Dim4\Dim4\obj\Debug\Dim4.csprojAssemblyReference.cache
+C:\Users\User\Documents\Dim4\Dim4\obj\Debug\Dim4.csproj.CoreCompileInputs.cache
+C:\Users\User\Documents\Dim4\Dim4\obj\Debug\Dim4.csproj.CopyComplete
+C:\Users\User\Documents\Dim4\Dim4\obj\Debug\Dim4.exe
+C:\Users\User\Documents\Dim4\Dim4\obj\Debug\Dim4.pdb
