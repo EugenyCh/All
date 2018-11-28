@@ -18,7 +18,7 @@ namespace StateMachine
 
     public delegate void StateAction<T>(State<T> state) where T : IComparable<T>;
     public delegate void TransitionAction<T>(State<T> stateFrom, State<T> stateTo) where T : IComparable<T>;
-    public delegate bool TransitionTracer<T>(State<T> stateFrom, State<T> stateTo, out double weight) where T : IComparable<T>;
+    public delegate bool TransitionTracer<T>(State<T> stateFrom, State<T> stateTo, ref double weight) where T : IComparable<T>;
 
     public class State<T> : IComparable<State<T>> where T : IComparable<T>
     {
@@ -50,7 +50,7 @@ namespace StateMachine
         public bool Trace(State<T> stateFrom, State<T> stateTo, out double weight)
         {
             weight = 0.0;
-            return Tracer?.Invoke(stateFrom, stateTo, out weight) ?? true;
+            return Tracer?.Invoke(stateFrom, stateTo, ref weight) ?? true;
         }
         public TransitionAction<T> TAction { get; set; }
         public void Do(State<T> stateFrom, State<T> stateTo)
