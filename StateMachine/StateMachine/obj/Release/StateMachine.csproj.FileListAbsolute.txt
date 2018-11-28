@@ -1,0 +1,6 @@
+C:\Users\User\Documents\StateMachine\StateMachine\bin\Release\StateMachine.dll
+C:\Users\User\Documents\StateMachine\StateMachine\bin\Release\StateMachine.pdb
+C:\Users\User\Documents\StateMachine\StateMachine\obj\Release\StateMachine.csprojAssemblyReference.cache
+C:\Users\User\Documents\StateMachine\StateMachine\obj\Release\StateMachine.csproj.CoreCompileInputs.cache
+C:\Users\User\Documents\StateMachine\StateMachine\obj\Release\StateMachine.dll
+C:\Users\User\Documents\StateMachine\StateMachine\obj\Release\StateMachine.pdb
