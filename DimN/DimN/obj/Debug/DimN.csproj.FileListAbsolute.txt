@@ -1,0 +1,12 @@
+C:\Users\User\Documents\DimN\DimN\bin\Debug\DimN.exe.config
+C:\Users\User\Documents\DimN\DimN\bin\Debug\DimN.exe
+C:\Users\User\Documents\DimN\DimN\bin\Debug\DimN.pdb
+C:\Users\User\Documents\DimN\DimN\bin\Debug\MathNet.Numerics.dll
+C:\Users\User\Documents\DimN\DimN\bin\Debug\StateMachine.dll
+C:\Users\User\Documents\DimN\DimN\bin\Debug\MathNet.Numerics.xml
+C:\Users\User\Documents\DimN\DimN\bin\Debug\StateMachine.pdb
+C:\Users\User\Documents\DimN\DimN\obj\Debug\DimN.csproj.CoreCompileInputs.cache
+C:\Users\User\Documents\DimN\DimN\obj\Debug\DimN.csproj.CopyComplete
+C:\Users\User\Documents\DimN\DimN\obj\Debug\DimN.exe
+C:\Users\User\Documents\DimN\DimN\obj\Debug\DimN.pdb
+C:\Users\User\Documents\DimN\DimN\obj\Debug\DimN.csprojAssemblyReference.cache
