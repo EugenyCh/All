@@ -185,8 +185,8 @@ namespace DimN
     {
         StreamReader file;
         string stream = "";
-        StateMachine<int> Machine;
-        Tracer FTracer;
+        StateMachine<int> Machine = new StateMachine<int>();
+        Tracer FTracer = new Tracer();
         public int Dimension { get; set; }
         public List<Polygon> Polygons { get; set; } = new List<Polygon>();
 
@@ -212,8 +212,6 @@ namespace DimN
         }
         public void CreateMachine()
         {
-            FTracer = new Tracer(stream);
-            Machine = new StateMachine<int>();
             Machine.ZeroState((int)States.MAIN);
             Machine.AddState((int)States.DEF);
             Machine.AddState((int)States.SYMBOL);
@@ -241,12 +239,13 @@ namespace DimN
         }
         public bool Trace()
         {
+            FTracer.In = stream;
             if (!Machine.Startup())
                 return false;
             if (Dimension != 0 & FTracer.Dimension != Dimension)
                 return false;
             Dimension = FTracer.Dimension;
-            Polygons.AddRange(FTracer.Polygons);
+            Polygons = FTracer.Polygons;
             return true;
         }
     }
