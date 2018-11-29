@@ -10,12 +10,6 @@ namespace StateMachine
         GREEDY
     }
 
-    public class IdentifierPair<T>
-    {
-        public T StateFrom = default(T);
-        public T StateTo = default(T);
-    }
-
     public delegate void StateAction<T>(State<T> state) where T : IComparable<T>;
     public delegate void TransitionAction<T>(State<T> stateFrom, State<T> stateTo) where T : IComparable<T>;
     public delegate bool TransitionTracer<T>(State<T> stateFrom, State<T> stateTo, ref double weight) where T : IComparable<T>;

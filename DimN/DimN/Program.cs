@@ -12,10 +12,12 @@ namespace DimN
         {
             Figure figure = new Figure("cube.txt");
             figure.Load();
+            figure.CreateMachine();
             figure.Trace();
             foreach (var polygon in figure.Polygons)
                 foreach (var vertex in polygon)
                     Console.WriteLine(Tracer.VectorToString(vertex));
+            figure.Free();
         }
     }
 }

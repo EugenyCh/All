@@ -91,12 +91,13 @@ namespace DimN
                     match = regex.Match(In);
                     if (match.Success)
                     {
-                        if (Dimension != 0)
+                        int parsed = int.Parse(match.Groups[1].Value);
+                        if (Dimension != 0 & Dimension != parsed)
                         {
                             Console.WriteLine($"The value of dimension has been setted already ({Dimension})!");
                             return false;
                         }
-                        Dimension = int.Parse(match.Groups[1].Value);
+                        Dimension = parsed;
                         if (Dimension == 0)
                         {
                             Console.WriteLine($"Dimension must be greater than zero!");
@@ -184,14 +185,13 @@ namespace DimN
     {
         StreamReader file;
         string stream = "";
+        StateMachine<int> Machine;
+        Tracer FTracer;
         public int Dimension { get; set; }
-        public List<Polygon> Polygons { get; set; }
+        public List<Polygon> Polygons { get; set; } = new List<Polygon>();
 
         public Figure() { }
-        public Figure(string pathToFile)
-        {
-            Update(pathToFile);
-        }
+        public Figure(string pathToFile) => Update(pathToFile);
         public bool Update(string pathToFile)
         {
             if (file != null)
@@ -205,35 +205,48 @@ namespace DimN
             while ((line = file.ReadLine()) != null)
                 stream += line + "\n";
         }
+        public void Free()
+        {
+            stream = "";
+            file.Close();
+        }
+        public void CreateMachine()
+        {
+            FTracer = new Tracer(stream);
+            Machine = new StateMachine<int>();
+            Machine.ZeroState((int)States.MAIN);
+            Machine.AddState((int)States.DEF);
+            Machine.AddState((int)States.SYMBOL);
+            Machine.AddState((int)States.DOUBLE);
+            Machine.AddState((int)States.INTEGER);
+            Machine.AddState((int)States.VECTOR);
+            Machine.AddState((int)States.POLYGON);
+            Machine.AddState((int)States.NEW_LINE);
+            Machine.AddState((int)States.END);
+            // --- MAIN ---
+            Machine.AddTransition((int)States.MAIN, (int)States.SYMBOL, FTracer.SymbolIntroTracer);
+            Machine.AddTransition((int)States.MAIN, (int)States.POLYGON, FTracer.NewPolygonTracer);
+            Machine.AddTransition((int)States.MAIN, (int)States.END);
+            // --- SYMBOL DEF INTEGER ---
+            Machine.AddTransition((int)States.SYMBOL, (int)States.DEF, FTracer.SymbolTracer);
+            Machine.AddTransition((int)States.DEF, (int)States.INTEGER, FTracer.SymbolTracer);
+            Machine.AddTransition((int)States.INTEGER, (int)States.MAIN, FTracer.SymbolTracer);
+            // --- VECTOR ---
+            Machine.AddTransition((int)States.VECTOR, (int)States.DOUBLE, FTracer.VectorDoubleTracer);
+            Machine.AddTransition((int)States.DOUBLE, (int)States.DOUBLE, FTracer.VectorDoubleTracer);
+            Machine.AddTransition((int)States.DOUBLE, (int)States.VECTOR, FTracer.VectorEndTracer);
+            // --- POLYGON ---
+            Machine.AddTransition((int)States.POLYGON, (int)States.VECTOR);
+            Machine.AddTransition((int)States.VECTOR, (int)States.MAIN, FTracer.VectorToMainTracer);
+        }
         public bool Trace()
         {
-            Tracer tracer = new Tracer(stream);
-            StateMachine<int> machine = new StateMachine<int>();
-            machine.ZeroState((int)States.MAIN);
-            machine.AddState((int)States.DEF);
-            machine.AddState((int)States.SYMBOL);
-            machine.AddState((int)States.DOUBLE);
-            machine.AddState((int)States.INTEGER);
-            machine.AddState((int)States.VECTOR);
-            machine.AddState((int)States.POLYGON);
-            machine.AddState((int)States.NEW_LINE);
-            // --- MAIN ---
-            machine.AddTransition((int)States.MAIN, (int)States.SYMBOL, tracer.SymbolIntroTracer);
-            machine.AddTransition((int)States.MAIN, (int)States.POLYGON, tracer.NewPolygonTracer);
-            // --- SYMBOL DEF INTEGER ---
-            machine.AddTransition((int)States.SYMBOL, (int)States.DEF, tracer.SymbolTracer);
-            machine.AddTransition((int)States.DEF, (int)States.INTEGER, tracer.SymbolTracer);
-            machine.AddTransition((int)States.INTEGER, (int)States.MAIN, tracer.SymbolTracer);
-            // --- VECTOR ---
-            machine.AddTransition((int)States.VECTOR, (int)States.DOUBLE, tracer.VectorDoubleTracer);
-            machine.AddTransition((int)States.DOUBLE, (int)States.DOUBLE, tracer.VectorDoubleTracer);
-            machine.AddTransition((int)States.DOUBLE, (int)States.VECTOR, tracer.VectorEndTracer);
-            // --- POLYGON ---
-            machine.AddTransition((int)States.POLYGON, (int)States.VECTOR);
-            machine.AddTransition((int)States.VECTOR, (int)States.MAIN, tracer.VectorToMainTracer);
-            machine.Startup();
-            Dimension = tracer.Dimension;
-            Polygons = tracer.Polygons;
+            if (!Machine.Startup())
+                return false;
+            if (Dimension != 0 & FTracer.Dimension != Dimension)
+                return false;
+            Dimension = FTracer.Dimension;
+            Polygons.AddRange(FTracer.Polygons);
             return true;
         }
     }
