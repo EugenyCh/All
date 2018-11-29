@@ -29,15 +29,15 @@ namespace DimN
 
     public static class Syntax
     {
-        public static Dictionary<States, string> Templates = new Dictionary<States, string>
+        public static Dictionary<States, Regex> Templates = new Dictionary<States, Regex>
         {
-            [States.SYMBOL] = @"^\s*(\w+)\s*",
-            [States.DEF] = @"^\s*\=\s*",
-            [States.INTEGER] = @"^\s*(\d+)",
-            [States.POLYGON] = @"^\s*polygon(?:[^\S\n]*\n)+",
-            [States.NEW_LINE] = @"^[^\S\n]*(?:\n[^\S\n]*)+|\Z",
-            [States.DOUBLE] = @"^[^\S\n]*(-?(?:\d*(?:\.\d+))|-?(?:\d+(?:\.\d*)?))",
-            [States.END] = @"^[^\S\n]*end(?:[^\S\n]*\n)+"
+            [States.SYMBOL] = new Regex(@"^\s*(\w+)\s*"),
+            [States.DEF] = new Regex(@"^\s*\=\s*"),
+            [States.INTEGER] = new Regex(@"^\s*(\d+)"),
+            [States.POLYGON] = new Regex(@"^\s*polygon(?:[^\S\n]*\n)+", RegexOptions.IgnoreCase),
+            [States.NEW_LINE] = new Regex(@"^[^\S\n]*(?:\n[^\S\n]*)+|\Z"),
+            [States.DOUBLE] = new Regex(@"^[^\S\n]*(-?(?:\d*(?:\.\d+))|-?(?:\d+(?:\.\d*)?))"),
+            [States.END] = new Regex(@"^[^\S\n]*end(?:[^\S\n]*\n)+", RegexOptions.IgnoreCase)
         };
     }
     
@@ -62,7 +62,7 @@ namespace DimN
         }
         public bool SymbolIntroTracer(State<int> stateFrom, State<int> stateTo, ref double weight)
         {
-            Regex regex = new Regex(Syntax.Templates[States.SYMBOL]);
+            Regex regex = Syntax.Templates[States.SYMBOL];
             Match match = regex.Match(In);
             if (match.Success & match.Groups[1].Value.ToLower() == "dim")
             {
@@ -78,7 +78,7 @@ namespace DimN
             switch ((States)stateTo.Identifier)
             {
                 case States.DEF:
-                    regex = new Regex(Syntax.Templates[States.DEF]);
+                    regex = Syntax.Templates[States.DEF];
                     match = regex.Match(In);
                     if (match.Success)
                     {
@@ -87,7 +87,7 @@ namespace DimN
                     }
                     break;
                 case States.INTEGER:
-                    regex = new Regex(Syntax.Templates[States.INTEGER]);
+                    regex = Syntax.Templates[States.INTEGER];
                     match = regex.Match(In);
                     if (match.Success)
                     {
@@ -108,7 +108,7 @@ namespace DimN
                     }
                     break;
                 case States.MAIN:
-                    regex = new Regex(Syntax.Templates[States.NEW_LINE]);
+                    regex = Syntax.Templates[States.NEW_LINE];
                     match = regex.Match(In);
                     if (match.Success)
                     {
@@ -121,7 +121,7 @@ namespace DimN
         }
         public bool VectorDoubleTracer(State<int> stateFrom, State<int> stateTo, ref double weight)
         {
-            Regex regex = new Regex(Syntax.Templates[States.DOUBLE]);
+            Regex regex = Syntax.Templates[States.DOUBLE];
             Match match = regex.Match(In);
             if (match.Success)
             {
@@ -138,7 +138,7 @@ namespace DimN
         }
         public bool VectorEndTracer(State<int> stateFrom, State<int> stateTo, ref double weight)
         {
-            Regex regex = new Regex(Syntax.Templates[States.NEW_LINE]);
+            Regex regex = Syntax.Templates[States.NEW_LINE];
             Match match = regex.Match(In);
             if (match.Success)
             {
@@ -157,7 +157,7 @@ namespace DimN
         }
         public bool NewPolygonTracer(State<int> stateFrom, State<int> stateTo, ref double weight)
         {
-            Regex regex = new Regex(Syntax.Templates[States.POLYGON]);
+            Regex regex = Syntax.Templates[States.POLYGON];
             Match match = regex.Match(In);
             if (match.Success)
             {
@@ -169,7 +169,7 @@ namespace DimN
         }
         public bool VectorToMainTracer(State<int> stateFrom, State<int> stateTo, ref double weight)
         {
-            Regex regex = new Regex(Syntax.Templates[States.END]);
+            Regex regex = Syntax.Templates[States.END];
             Match match = regex.Match(In);
             if (match.Success)
             {
