@@ -18,12 +18,38 @@ namespace ConsoleSnake
         }
     }
 
+    class Button
+    {
+        public static readonly int Width = Console.WindowWidth / 4;
+        public const int Height = 3;
+        public string Label;
+        public int Y;
+        public Coord[] Area
+        {
+            get
+            {
+                return new Coord[] {
+                    new Coord { X = Console.WindowWidth / 2 - Width / 2 , Y = Y },
+                    new Coord { X = Console.WindowWidth / 2 - Width / 2 + Width , Y = Y + Height - 1 }
+                };
+            }
+        }
+        public Action Click;
+    }
+
     enum Orientation
     {
         Left,
         Up,
         Right,
         Down
+    }
+
+    enum WindowType
+    {
+        Welcome,
+        Menu,
+        Game
     }
 
     class MainClass
@@ -62,6 +88,7 @@ namespace ConsoleSnake
         public static object Locker = new object();
         public static bool Playing = true;
         public const string StringGameOver = "GAME OVER!";
+        public const string StringWelcome = "Welcome to ConsoleSnake game!";
         public static int Score;
         public static int Lifes = 3;
         public static Random Rand = new Random(DateTime.Now.Millisecond);
@@ -71,6 +98,22 @@ namespace ConsoleSnake
         public static int ApplesCount = 5;
         public static int PoisonsMaxCount = 2;
         public static int CuresMaxCount = 2;
+        public static WindowType WType;
+        public static List<Button> Buttons = new List<Button> {
+            new Button { Y = Console.WindowHeight / 3 - Button.Height, Label = "Play", Click = Play },
+            new Button { Y = 2 * Console.WindowHeight / 3 - Button.Height, Label = "Exit", Click = Exit }
+        };
+        public static int ActiveButton = 0;
+
+        public static void Play()
+        {
+            WType = WindowType.Game;
+        }
+
+        public static void Exit()
+        {
+            Playing = false;
+        }
 
         public static string Center(string s, int width, char fill = ' ')
         {
@@ -240,7 +283,7 @@ namespace ConsoleSnake
             var fore = Console.ForegroundColor;
             if (Playing)
             {
-                Console.ForegroundColor = Color.Green;
+                Console.ForegroundColor = Color.LimeGreen;
                 if (!Apples.Remove(newXY))
                     Snake.RemoveAt(0);
                 else
@@ -285,27 +328,49 @@ namespace ConsoleSnake
                 lock (Locker)
                 {
                     keyInfo = Console.ReadKey(true);
-                    if (keyInfo.Key == ConsoleKey.W || keyInfo.Key == ConsoleKey.UpArrow)
-                        Direction = Orientation.Up;
-                    else if (keyInfo.Key == ConsoleKey.S || keyInfo.Key == ConsoleKey.DownArrow)
-                        Direction = Orientation.Down;
-                    else if (keyInfo.Key == ConsoleKey.D || keyInfo.Key == ConsoleKey.RightArrow)
-                        Direction = Orientation.Right;
-                    else if (keyInfo.Key == ConsoleKey.A || keyInfo.Key == ConsoleKey.LeftArrow)
-                        Direction = Orientation.Left;
-                    else if (keyInfo.Key == ConsoleKey.Spacebar)
+                    if (WType == WindowType.Game)
                     {
-                        if (CanPlay)
-                            Freeze(-1);
-                        else
-                            CanPlay = true;
+                        if (keyInfo.Key == ConsoleKey.W || keyInfo.Key == ConsoleKey.UpArrow)
+                            Direction = Orientation.Up;
+                        else if (keyInfo.Key == ConsoleKey.S || keyInfo.Key == ConsoleKey.DownArrow)
+                            Direction = Orientation.Down;
+                        else if (keyInfo.Key == ConsoleKey.D || keyInfo.Key == ConsoleKey.RightArrow)
+                            Direction = Orientation.Right;
+                        else if (keyInfo.Key == ConsoleKey.A || keyInfo.Key == ConsoleKey.LeftArrow)
+                            Direction = Orientation.Left;
+                        else if (keyInfo.Key == ConsoleKey.Spacebar)
+                        {
+                            if (CanPlay)
+                                Freeze(-1);
+                            else
+                                CanPlay = true;
+                        }
+                        else if (keyInfo.Key == ConsoleKey.Escape)
+                        {
+                            Pause = true;
+                            WType = WindowType.Menu;
+                        }
+                    }
+                    else if (WType == WindowType.Menu)
+                    {
+                        if (keyInfo.Key == ConsoleKey.W || keyInfo.Key == ConsoleKey.UpArrow
+                            || keyInfo.Key == ConsoleKey.A || keyInfo.Key == ConsoleKey.LeftArrow)
+                            ActiveButton = (ActiveButton + Buttons.Count - 1) % Buttons.Count;
+                        else if (keyInfo.Key == ConsoleKey.S || keyInfo.Key == ConsoleKey.DownArrow
+                            || keyInfo.Key == ConsoleKey.D || keyInfo.Key == ConsoleKey.RightArrow)
+                            ActiveButton = (ActiveButton + 1) % Buttons.Count;
+                        else if (keyInfo.Key == ConsoleKey.Escape)
+                            WType = WindowType.Game;
+                        else if (keyInfo.Key == ConsoleKey.Enter || keyInfo.Key == ConsoleKey.Spacebar)
+                            Buttons[ActiveButton].Click();
                     }
                 }
-            } while (keyInfo.Key != ConsoleKey.Escape);
+            } while (true);
         }
 
         public static void Draw()
         {
+            Console.BackgroundColor = Color.Black;
             Console.Clear();
             DrawField();
             DrawStatus();
@@ -316,10 +381,45 @@ namespace ConsoleSnake
             DrawSnake();
         }
 
+        public static void DrawWelcome()
+        {
+            Console.BackgroundColor = Color.DarkSlateBlue;
+            Console.Clear();
+            Console.ForegroundColor = Color.LightYellow;
+            Console.SetCursorPosition(0, Console.WindowHeight / 2 - 1);
+            Console.Write(Center(StringWelcome, Console.WindowWidth));
+        }
+
+        public static void DrawButton(Button button)
+        {
+            var area = button.Area;
+            var foreColor = Console.ForegroundColor;
+            var backColor = Console.BackgroundColor;
+            if (Buttons.IndexOf(button) == ActiveButton)
+                Console.BackgroundColor = Color.White;
+            else
+                Console.BackgroundColor = Color.LightGray;
+            Console.ForegroundColor = Color.DarkSlateBlue;
+            Console.SetCursorPosition(area[0].X, area[0].Y);
+            Console.Write(new string(' ', Button.Width));
+            Console.SetCursorPosition(area[0].X, area[0].Y + 1);
+            Console.Write(Center(button.Label, Button.Width));
+            Console.SetCursorPosition(area[0].X, area[0].Y + 2);
+            Console.Write(new string(' ', Button.Width));
+            Console.ForegroundColor = foreColor;
+            Console.BackgroundColor = backColor;
+        }
+
+        public static void DrawMenu()
+        {
+            Console.BackgroundColor = Color.DarkSlateBlue;
+            Console.Clear();
+            Buttons.ForEach(DrawButton);
+        }
+
         public static void Main(string[] args)
         {
-            Console.BackgroundColor = Color.Black;
-            Console.Clear();
+            WType = WindowType.Welcome;
             Console.ForegroundColor = Color.White;
             Console.CursorVisible = false;
             var time = DateTime.Now;
@@ -342,14 +442,28 @@ namespace ConsoleSnake
                         if (delta.TotalMilliseconds > DeltaTime)
                         {
                             time = time.AddMilliseconds(DeltaTime);
-                            Generate();
-                            Draw();
+                            switch (WType)
+                            {
+                                case WindowType.Game:
+                                    Generate();
+                                    Draw();
+                                    break;
+                                case WindowType.Welcome:
+                                    DrawWelcome();
+                                    Freeze(2000);
+                                    WType = WindowType.Menu;
+                                    break;
+                                case WindowType.Menu:
+                                    DrawMenu();
+                                    break;
+                            }
                         }
                     }
                 }
                 else
                     Thread.Sleep((int)DeltaTime);
             }
+            Console.Clear();
         }
     }
 }
