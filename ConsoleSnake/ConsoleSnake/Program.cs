@@ -450,7 +450,7 @@ namespace ConsoleSnake
                                     break;
                                 case WindowType.Welcome:
                                     DrawWelcome();
-                                    Freeze(2000);
+                                    Freeze(1500);
                                     WType = WindowType.Menu;
                                     break;
                                 case WindowType.Menu:
@@ -463,7 +463,13 @@ namespace ConsoleSnake
                 else
                     Thread.Sleep((int)DeltaTime);
             }
+            thread.Abort();
+            Console.BackgroundColor = Color.Black;
             Console.Clear();
+            string byeString = "Goodbye for now . . . :^)";
+            Console.SetCursorPosition((Console.WindowWidth - byeString.Length) / 2, Console.WindowHeight / 2);
+            Console.WriteWithGradient(byeString, Color.DarkOrange, Color.Yellow, 2);
+            Console.ReadKey(true);
         }
     }
 }
