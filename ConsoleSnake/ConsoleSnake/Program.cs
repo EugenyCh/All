@@ -1,7 +1,11 @@
 ﻿using System;
+using System.IO;
 using System.Drawing;
 using System.Threading;
+using System.Globalization;
 using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Colorful;
 
 using Console = Colorful.Console;
@@ -37,6 +41,24 @@ namespace ConsoleSnake
         public Action Click;
     }
 
+    class Record : IComparable<Record>
+    {
+        public int TotalLifes;
+        public int TotalScore;
+        public int TotalCures;
+        public int TotalPoisons;
+        public TimeSpan GameTime;
+        public static string File = "Records.json";
+
+        public int CompareTo(Record obj)
+        {
+            if (TotalScore != obj.TotalScore)
+                return TotalScore.CompareTo(obj.TotalScore);
+            else
+                return 1 - GameTime.CompareTo(obj.GameTime);
+        }
+    }
+
     enum Orientation
     {
         Left,
@@ -49,7 +71,9 @@ namespace ConsoleSnake
     {
         Welcome,
         Menu,
-        Game
+        Records,
+        Game,
+        GameOver
     }
 
     class MainClass
@@ -100,14 +124,24 @@ namespace ConsoleSnake
         public static int CuresMaxCount = 2;
         public static WindowType WType;
         public static List<Button> Buttons = new List<Button> {
-            new Button { Y = Console.WindowHeight / 3 - Button.Height, Label = "Play", Click = Play },
-            new Button { Y = 2 * Console.WindowHeight / 3 - Button.Height, Label = "Exit", Click = Exit }
+            new Button { Y = Console.WindowHeight / 4 - Button.Height, Label = "Play", Click = Play },
+            new Button { Y = 2 * Console.WindowHeight / 4 - Button.Height, Label = "Records", Click = ShowRecords },
+            new Button { Y = 3 * Console.WindowHeight / 4 - Button.Height, Label = "Exit", Click = Exit }
         };
         public static int ActiveButton = 0;
+        public static Record RecordInfo;
+        public static SortedSet<Record> AllRecords = new SortedSet<Record>();
+        public static TimeSpan GameTime = TimeSpan.Zero;
 
         public static void Play()
         {
             WType = WindowType.Game;
+        }
+
+        public static void ShowRecords()
+        {
+            Pause = true;
+            WType = WindowType.Records;
         }
 
         public static void Exit()
@@ -154,7 +188,10 @@ namespace ConsoleSnake
         {
             Pause = true;
             if (milliseconds >= 0)
+            {
                 Thread.Sleep(milliseconds);
+                ResetTime();
+            }
             else
                 CanPlay = false;
         }
@@ -272,31 +309,36 @@ namespace ConsoleSnake
                 return;
             }
             if (Cures.Remove(newXY))
+            {
                 ++Lifes;
+                ++RecordInfo.TotalCures;
+                ++RecordInfo.TotalLifes;
+            }
             if (Poisons.Remove(newXY))
             {
                 Console.SetCursorPosition(newXY.X, newXY.Y);
                 Console.Write(' ');
+                ++RecordInfo.TotalPoisons;
                 SubstractLife();
                 return;
             }
             var fore = Console.ForegroundColor;
-            if (Playing)
+            Console.ForegroundColor = Color.LimeGreen;
+            if (!Apples.Remove(newXY))
+                Snake.RemoveAt(0);
+            else
             {
-                Console.ForegroundColor = Color.LimeGreen;
-                if (!Apples.Remove(newXY))
-                    Snake.RemoveAt(0);
-                else
-                    ++Score;
-                foreach (var coord in Snake)
-                {
-                    Console.SetCursorPosition(coord.X, coord.Y);
-                    Console.Write('#');
-                }
-                Snake.Add(newXY);
-                Console.SetCursorPosition(newXY.X, newXY.Y);
-                Console.Write('O');
+                ++Score;
+                ++RecordInfo.TotalScore;
             }
+            foreach (var coord in Snake)
+            {
+                Console.SetCursorPosition(coord.X, coord.Y);
+                Console.Write('#');
+            }
+            Snake.Add(newXY);
+            Console.SetCursorPosition(newXY.X, newXY.Y);
+            Console.Write('O');
             Console.ForegroundColor = fore;
         }
 
@@ -307,17 +349,28 @@ namespace ConsoleSnake
                 Revive();
             else
             {
-                var GamingTime = DateTime.Now - ZeroTime;
-                Console.BackgroundColor = Color.DarkMagenta;
-                Console.Clear();
-                Playing = false;
-                Console.ForegroundColor = Color.White;
-                Console.SetCursorPosition(0, Console.WindowHeight / 2 - 1);
-                Console.Write(Center(StringGameOver, Console.WindowWidth));
-                Console.Write(Center($"Total score: {Score} | Gaming time: " +
-                    (GamingTime.TotalMinutes >= 1.0 ? $"{(int)GamingTime.TotalMinutes} min " : "") +
-                    $"{GamingTime.Seconds} s {GamingTime.Milliseconds} ms", Console.WindowWidth));
+                SaveRecord();
+                DrawGameOver();
             }
+        }
+
+        public static string TimeToString(TimeSpan time)
+        {
+            return (time.TotalMinutes >= 1.0 ? $"{(int)time.TotalMinutes} min " : "") +
+                $"{time.Seconds} s {time.Milliseconds} ms";
+        }
+
+        public static void DrawGameOver()
+        {
+            Pause = true;
+            CanPlay = false;
+            WType = WindowType.GameOver;
+            Console.BackgroundColor = Color.DarkMagenta;
+            Console.Clear();
+            Console.ForegroundColor = Color.White;
+            Console.SetCursorPosition(0, Console.WindowHeight / 2 - 1);
+            Console.Write(Center(StringGameOver, Console.WindowWidth));
+            Console.Write(Center($"Total score: {Score} | Game time: " + TimeToString(GameTime), Console.WindowWidth));
         }
 
         public static void HandleEvents()
@@ -364,6 +417,11 @@ namespace ConsoleSnake
                         else if (keyInfo.Key == ConsoleKey.Enter || keyInfo.Key == ConsoleKey.Spacebar)
                             Buttons[ActiveButton].Click();
                     }
+                    else if (WType == WindowType.Records)
+                    {
+                        if (keyInfo.Key == ConsoleKey.Escape)
+                            WType = WindowType.Menu;
+                    }
                 }
             } while (true);
         }
@@ -378,7 +436,22 @@ namespace ConsoleSnake
             var max = PoisonsMaxCount + CuresMaxCount;
             if (Rand.NextDouble() < 0.1 * (1 - sum / max))
                 AddBonus();
+            DrawTime();
             DrawSnake();
+        }
+
+        public static string Fill(string str, int len)
+        {
+            return Center(str, (str.Length / len + 1) * len);
+        }
+
+        public static void DrawTime()
+        {
+            var label = Fill($"Elapsed: {TimeToString(GameTime)}", 4);
+            var fore = Console.ForegroundColor;
+            var back = Console.BackgroundColor;
+            Console.SetCursorPosition((Console.WindowWidth - label.Length) / 2, 1);
+            Console.WriteWithGradient(label, Color.LightSeaGreen, Color.Red, 4);
         }
 
         public static void DrawWelcome()
@@ -410,6 +483,12 @@ namespace ConsoleSnake
             Console.BackgroundColor = backColor;
         }
 
+        public static void DrawRecord(int line, Record record)
+        {
+            Console.SetCursorPosition(0, 2 + line * 2);
+            Console.Write(new string(' ', 16) + $"#{line + 1} Score: {record.TotalScore} - Lifes: {record.TotalLifes} - Bonuses: {record.TotalPoisons + record.TotalCures} - Gaming Time: {TimeToString(record.GameTime)}");
+        }
+
         public static void DrawMenu()
         {
             Console.BackgroundColor = Color.DarkSlateBlue;
@@ -417,15 +496,78 @@ namespace ConsoleSnake
             Buttons.ForEach(DrawButton);
         }
 
+        public static void DrawRecords()
+        {
+            Console.BackgroundColor = Color.DarkSlateBlue;
+            Console.Clear();
+            if (AllRecords.Count > 0)
+            {
+                var records = new List<Record>(AllRecords.Reverse());
+                for (int i = 0; i < records.Count; ++i)
+                    DrawRecord(i, records[i]);
+            }
+            else
+            {
+                Console.SetCursorPosition(0, Console.WindowHeight / 2);
+                Console.Write(Center("Empty list . . .", Console.WindowWidth));
+            }
+        }
+
+        public static void LoadRecords()
+        {
+            try
+            {
+                StreamReader file = new StreamReader(Record.File);
+                string text = file.ReadToEnd();
+                var data = JsonConvert.DeserializeObject<SortedSet<Record>>(text);
+                if (data != null)
+                    AllRecords = JsonConvert.DeserializeObject<SortedSet<Record>>(text);
+                file.Close();
+            }
+            catch (Exception)
+            {
+                return;
+            }
+        }
+
+        public static void SaveRecord()
+        {
+            StreamWriter file = new StreamWriter(Record.File);
+            RecordInfo.GameTime = GameTime;
+            AllRecords.Add(RecordInfo);
+            string text = JsonConvert.SerializeObject(AllRecords);
+            file.Write(text);
+            file.Close();
+        }
+
+        public static void ResetTime()
+        {
+            ZeroTime = DateTime.Now;
+        }
+
+        public static void AccumulateTime()
+        {
+            GameTime += DateTime.Now - ZeroTime;
+            ZeroTime = DateTime.Now;
+        }
+
         public static void Main(string[] args)
         {
+            LoadRecords();
+            RecordInfo = new Record
+            {
+                TotalScore = Score,
+                TotalLifes = Lifes,
+                TotalCures = 0,
+                TotalPoisons = 0
+            };
             WType = WindowType.Welcome;
             Console.ForegroundColor = Color.White;
             Console.CursorVisible = false;
             var time = DateTime.Now;
             var thread = new Thread(HandleEvents);
             thread.Start();
-            ZeroTime = DateTime.Now;
+            ResetTime();
             while (thread.IsAlive && Playing)
             {
                 if (CanPlay)
@@ -433,7 +575,6 @@ namespace ConsoleSnake
                     if (Pause)
                     {
                         Pause = false;
-                        time = DateTime.Now;
                         Thread.Sleep((int)DeltaTime);
                     }
                     else
@@ -447,6 +588,7 @@ namespace ConsoleSnake
                                 case WindowType.Game:
                                     Generate();
                                     Draw();
+                                    AccumulateTime();
                                     break;
                                 case WindowType.Welcome:
                                     DrawWelcome();
@@ -456,19 +598,27 @@ namespace ConsoleSnake
                                 case WindowType.Menu:
                                     DrawMenu();
                                     break;
+                                case WindowType.Records:
+                                    DrawRecords();
+                                    break;
                             }
+                            if (WType != WindowType.Game)
+                                ResetTime();
                         }
                     }
                 }
                 else
+                {
                     Thread.Sleep((int)DeltaTime);
+                    ResetTime();
+                }
             }
             thread.Abort();
             Console.BackgroundColor = Color.Black;
             Console.Clear();
-            string byeString = "Goodbye for now . . . :^)";
+            string byeString = Fill("Goodbye for now . . . :^)", 3);
             Console.SetCursorPosition((Console.WindowWidth - byeString.Length) / 2, Console.WindowHeight / 2);
-            Console.WriteWithGradient(byeString, Color.DarkOrange, Color.Yellow, 2);
+            Console.WriteWithGradient(byeString, Color.DarkOrange, Color.Yellow, 3);
             Console.ReadKey(true);
         }
     }

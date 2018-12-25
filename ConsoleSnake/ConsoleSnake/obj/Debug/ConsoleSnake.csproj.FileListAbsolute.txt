@@ -7,3 +7,6 @@ C:\Users\User\Documents\ConsoleSnake\ConsoleSnake\obj\Debug\ConsoleSnake.csproj.
 C:\Users\User\Documents\ConsoleSnake\ConsoleSnake\obj\Debug\ConsoleSnake.exe
 C:\Users\User\Documents\ConsoleSnake\ConsoleSnake\obj\Debug\ConsoleSnake.pdb
 C:\Users\User\Documents\ConsoleSnake\ConsoleSnake\obj\Debug\ConsoleSnake.csprojAssemblyReference.cache
+C:\Users\User\Documents\ConsoleSnake\ConsoleSnake\bin\Debug\Newtonsoft.Json.dll
+C:\Users\User\Documents\ConsoleSnake\ConsoleSnake\bin\Debug\Newtonsoft.Json.pdb
+C:\Users\User\Documents\ConsoleSnake\ConsoleSnake\bin\Debug\Newtonsoft.Json.xml
