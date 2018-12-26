@@ -108,19 +108,21 @@ namespace XConsole
 
     public class XColor
     {
-        public static Color DefaultBack = Color.FromArgb(255, 88, 24, 69);
-        public static Color DefaultFore = Color.FromArgb(255, 255, 87, 51);
+        public static Color DefaultBack = Color.FromArgb(255, 63, 63, 63);
+        public static Color DefaultFore = Color.FromArgb(255, 132, 170, 217);
+        public static Color InactiveFore = Color.FromArgb(255, 80, 96, 112);
         public static Color Lighting = Color.FromArgb(64, 255, 255, 255);
         public static Color Darking = Color.FromArgb(64, 0, 0, 0);
         public static Color Intersection(Color a, Color b)
         {
-            var alpha = (float)b.A / 255;
-            var alpha0 = (float)a.A / 255;
+            var alphaA = (float)a.A / 255;
+            var alphaB = (float)b.A / 255;
+            var alpha = alphaA + alphaB - alphaA * alphaB;
             return Color.FromArgb(
-                (int)((alpha + alpha0 - alpha * alpha0) * 255),
-                (int)((1.0 - alpha) * a.R + alpha * b.R),
-                (int)((1.0 - alpha) * a.G + alpha * b.G),
-                (int)((1.0 - alpha) * a.B + alpha * b.B));
+                (int)(alpha * 255),
+                (int)(alpha * (a.R + b.R) * 0.5),
+                (int)(alpha * (a.G + b.G) * 0.5),
+                (int)(alpha * (a.B + b.B) * 0.5));
         }
     }
 
@@ -132,10 +134,10 @@ namespace XConsole
             var halfUp = (int)border - halfDown;
             return new Point[]
             {
-                new Point(halfDown, height - halfUp),
-                new Point(halfDown, halfDown),
-                new Point(width - halfUp, halfDown),
-                new Point(width - halfUp, height - halfUp)
+                new Point(left + halfDown, top + height - halfUp),
+                new Point(left + halfDown, top + halfDown),
+                new Point(left + width - halfUp, top + halfDown),
+                new Point(left + width - halfUp, top + height - halfUp)
             };
         }
     }
@@ -143,10 +145,12 @@ namespace XConsole
     public class XTabControl : Control
     {
         protected List<XTabPage> pages = new List<XTabPage>();
+        protected List<Rectangle> pageCaps;
         protected Font font;
         protected FontFamily fontFamily = FontFamily.GenericMonospace;
         protected float fontSize = 13;
         protected FontStyle fontStyle = FontStyle.Regular;
+        protected float penWidth = 2;
 
         public int ActiveTab = 0;
         public int CapMinHeight = 24;
@@ -239,21 +243,66 @@ namespace XConsole
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
-            g.Clear(XColor.DefaultBack);
             var lastX = 0;
-            var pen = new Pen(XColor.DefaultFore, 2);
-            var brushFore = new SolidBrush(XColor.DefaultFore);
-            foreach (var page in pages)
+            var penInactive = new Pen(XColor.InactiveFore, penWidth);
+            var brushInactive = new SolidBrush(XColor.InactiveFore);
+            var penActive = new Pen(XColor.DefaultFore, penWidth);
+            var brushActive = new SolidBrush(XColor.DefaultFore);
+            for (int i = 0; i < Count; ++i)
             {
+                var page = pages[i];
                 var size = TextRenderer.MeasureText(page.Title, CapFont);
                 size.Width += CapPadding * 2;
                 size.Height += CapPadding * 2;
                 size.Width = Math.Max(CapMinWidth, size.Width);
                 size.Height = Math.Max(CapMinHeight, size.Height);
-                g.DrawLines(pen, XRectangle.Generate(lastX, 0, size.Width, size.Height, pen.Width));
-                g.DrawString(page.Title, font, brushFore, lastX + CapPadding, CapPadding);
+                var half = (int)(penWidth * 0.25) + 1;
+                var points = new Point[] {
+                    new Point(lastX, half),
+                    new Point(lastX + size.Width, half),
+                    new Point(lastX + size.Width, size.Height)
+                };
+                if (ActiveTab == i)
+                {
+                    g.DrawLines(penActive, points);
+                    g.DrawString(page.Title, font, brushActive, lastX + CapPadding, CapPadding);
+                }
+                else
+                {
+                    g.DrawLines(penInactive, points);
+                    g.DrawString(page.Title, font, brushInactive, lastX + CapPadding, CapPadding);
+                }
+                lastX += (int)(penWidth * 0.5) + size.Width;
+            }
+        }
+
+        protected void UpdateCaps()
+        {
+            var lastX = 0;
+            pageCaps = new List<Rectangle>();
+            foreach (var page in pages)
+            {
+                lastX += (int)(penWidth * 0.25);
+                var size = TextRenderer.MeasureText(page.Title, CapFont);
+                size.Width += CapPadding * 2;
+                size.Height += CapPadding * 2;
+                size.Width = Math.Max(CapMinWidth, size.Width);
+                size.Height = Math.Max(CapMinHeight, size.Height);
+                pageCaps.Add(new Rectangle(lastX, 0, size.Width, size.Height));
                 lastX += size.Width;
             }
+        }
+
+        protected override void OnMouseClick(MouseEventArgs e)
+        {
+            UpdateCaps();
+            for (int i = 0; i < pages.Count; ++i)
+                if (pageCaps[i].Contains(e.Location))
+                {
+                    ActiveTab = i;
+                    Refresh();
+                    return;
+                }
         }
     }
 
