@@ -113,17 +113,6 @@ namespace XConsole
         public static Color InactiveFore = Color.FromArgb(255, 80, 96, 112);
         public static Color Lighting = Color.FromArgb(64, 255, 255, 255);
         public static Color Darking = Color.FromArgb(64, 0, 0, 0);
-        public static Color Intersection(Color a, Color b)
-        {
-            var alphaA = (float)a.A / 255;
-            var alphaB = (float)b.A / 255;
-            var alpha = alphaA + alphaB - alphaA * alphaB;
-            return Color.FromArgb(
-                (int)(alpha * 255),
-                (int)(alpha * (a.R + b.R) * 0.5),
-                (int)(alpha * (a.G + b.G) * 0.5),
-                (int)(alpha * (a.B + b.B) * 0.5));
-        }
     }
 
     public class XRectangle
@@ -247,6 +236,7 @@ namespace XConsole
             var lastX = 0;
             var penInactive = new Pen(XColor.InactiveFore, penWidth);
             var brushInactive = new SolidBrush(XColor.InactiveFore);
+            var brushInactiveBack = new SolidBrush(XColor.Darking);
             var penActive = new Pen(XColor.DefaultFore, penWidth);
             var brushActive = new SolidBrush(XColor.DefaultFore);
             for (int i = 0; i < Count; ++i)
@@ -269,6 +259,7 @@ namespace XConsole
                 }
                 else
                 {
+                    g.FillRectangle(brushInactiveBack, lastX, 0, size.Width, size.Height);
                     g.DrawLines(penInactive, points);
                     g.DrawString(page.Title, CapFont, brushInactive, lastX + CapPadding, CapPadding);
                 }

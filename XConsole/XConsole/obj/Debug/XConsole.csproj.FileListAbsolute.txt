@@ -4,3 +4,4 @@ C:\Users\User\Documents\XConsole\XConsole\bin\Debug\XConsole.pdb
 C:\Users\User\Documents\XConsole\XConsole\obj\Debug\XConsole.csproj.CoreCompileInputs.cache
 C:\Users\User\Documents\XConsole\XConsole\obj\Debug\XConsole.exe
 C:\Users\User\Documents\XConsole\XConsole\obj\Debug\XConsole.pdb
+C:\Users\User\Documents\XConsole\XConsole\obj\Debug\XConsole.csprojAssemblyReference.cache
