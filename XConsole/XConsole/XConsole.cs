@@ -140,14 +140,53 @@ namespace XConsole
         protected float fontSize = 13;
         protected FontStyle fontStyle = FontStyle.Regular;
         protected float penWidth = 2;
+        protected int firstX = 0;
+        protected int first = 0;
+        protected string toLeft = "<";
+        protected string toRight = ">";
+        protected string newTab = "[+]";
 
         public int ActiveTab = 0;
         public int CapMinWidth = 80;
         public int CapPadding = 6;
 
-        public Font CapFont = new Font(FontFamily.GenericMonospace, 32, FontStyle.Bold);
+        public int ButtonWidth(string s)
+        {
+            var width = TextRenderer.MeasureText(s, CapFont).Width;
+            return width + CapPadding * 2;
+        }
+
+        public int ToLeftWidth => ButtonWidth(toLeft);
+        public int ToRightWidth => ButtonWidth(toRight);
+        public int NewTabWidth => ButtonWidth(newTab);
+
+        public int RightSpace => ToLeftWidth + ToRightWidth;
+
+        public Font CapFont = new Font(FontFamily.GenericMonospace, 13, FontStyle.Bold);
 
         public int CapHeight => CapFont.Height + CapPadding * 2;
+
+        public int FirstPage => first;
+
+        public void NextPage()
+        {
+            first = (first + 1) % Count;
+            firstX = 0;
+            for (int i = 0; i < first; ++i)
+                firstX -= pageCaps[i].Width;
+            UpdateCaps();
+            Refresh();
+        }
+
+        public void PrevPage()
+        {
+            first = (Count + first - 1) % Count;
+            firstX = 0;
+            for (int i = 0; i < first; ++i)
+                firstX -= pageCaps[i].Width;
+            UpdateCaps();
+            Refresh();
+        }
 
         public FontFamily Family
         {
@@ -189,6 +228,7 @@ namespace XConsole
         {
             UpdateFont();
             FillDefault();
+            UpdateCaps();
         }
 
         public XTabControl(XTabPage page)
@@ -198,12 +238,14 @@ namespace XConsole
                 FillDefault();
             else
                 pages.Add(page);
+            UpdateCaps();
         }
 
         public XTabControl(string newTabTitle) : this()
         {
             UpdateFont();
             pages.Add(new XTabPage(newTabTitle));
+            UpdateCaps();
         }
 
         public XTabControl(IEnumerable<XTabPage> list)
@@ -212,6 +254,7 @@ namespace XConsole
             pages.AddRange(list);
             if (pages.Count == 0)
                 FillDefault();
+            UpdateCaps();
         }
 
         public XTabControl(IEnumerable<string> list)
@@ -221,6 +264,7 @@ namespace XConsole
                 pages.Add(new XTabPage(title));
             if (pages.Count == 0)
                 FillDefault();
+            UpdateCaps();
         }
 
         public void Add() => pages.Add(new XTabPage());
@@ -233,66 +277,99 @@ namespace XConsole
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
-            var lastX = 0;
+            g.SetClip(new Rectangle(0, 0, Width - RightSpace, CapHeight));
+            var lastX = firstX;
             var penInactive = new Pen(XColor.InactiveFore, penWidth);
             var brushInactive = new SolidBrush(XColor.InactiveFore);
             var brushInactiveBack = new SolidBrush(XColor.Darking);
             var penActive = new Pen(XColor.DefaultFore, penWidth);
             var brushActive = new SolidBrush(XColor.DefaultFore);
+            var half = (int)(penWidth * 0.25) + 1;
+            Point[] points;
             for (int i = 0; i < Count; ++i)
             {
                 var page = pages[i];
-                var size = TextRenderer.MeasureText(page.Title, CapFont);
-                size.Width += CapPadding * 2;
-                size.Height = CapHeight;
-                size.Width = Math.Max(CapMinWidth, size.Width);
-                var half = (int)(penWidth * 0.25) + 1;
-                var points = new Point[] {
+                var width = ButtonWidth(page.Title);
+                width = Math.Max(CapMinWidth, width);
+                points = new Point[] {
                     new Point(lastX, half),
-                    new Point(lastX + size.Width, half),
-                    new Point(lastX + size.Width, size.Height)
+                    new Point(lastX + width, half),
+                    new Point(lastX + width, CapHeight)
                 };
                 if (ActiveTab == i)
                 {
                     g.DrawLines(penActive, points);
-                    g.DrawString(page.Title, CapFont, brushActive, lastX + CapPadding, CapPadding);
+                    g.DrawString(page.Title, CapFont, brushActive, points[0].X + CapPadding, points[0].Y + CapPadding);
                 }
                 else
                 {
-                    g.FillRectangle(brushInactiveBack, lastX, 0, size.Width, size.Height);
+                    g.FillRectangle(brushInactiveBack, points[0].X, 0, width, CapHeight);
                     g.DrawLines(penInactive, points);
-                    g.DrawString(page.Title, CapFont, brushInactive, lastX + CapPadding, CapPadding);
+                    g.DrawString(page.Title, CapFont, brushInactive, points[0].X + CapPadding, points[0].Y + CapPadding);
                 }
-                lastX += (int)(penWidth * 0.5) + size.Width;
+                lastX += width;
             }
+            points = new Point[] {
+                    new Point(lastX, half),
+                    new Point(lastX + NewTabWidth, half),
+                    new Point(lastX + NewTabWidth, CapHeight)
+                };
+            g.DrawLines(penActive, points);
+            g.DrawString(newTab, CapFont, brushActive, points[0].X + CapPadding, points[0].Y + CapPadding);
+            g.SetClip(new Rectangle(Width - RightSpace - half, 0, RightSpace + half, CapHeight));
+            var bounds = g.ClipBounds;
+            points = new Point[] {
+                    new Point(Width - RightSpace, CapHeight),
+                    new Point(Width - RightSpace, half),
+                    new Point(Width - ToRightWidth, half)
+                };
+            g.DrawLines(penActive, points);
+            g.DrawString(toLeft, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
+            points = new Point[] {
+                    new Point(Width - ToRightWidth, CapHeight),
+                    new Point(Width - ToRightWidth, half),
+                    new Point(Width, half)
+                };
+            g.DrawLines(penActive, points);
+            g.DrawString(toRight, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
         }
 
         protected void UpdateCaps()
         {
-            var lastX = 0;
+            var lastX = firstX;
             pageCaps = new List<Rectangle>();
             foreach (var page in pages)
             {
                 lastX += (int)(penWidth * 0.25);
-                var size = TextRenderer.MeasureText(page.Title, CapFont);
-                size.Width += CapPadding * 2;
-                size.Height = CapHeight;
-                size.Width = Math.Max(CapMinWidth, size.Width);
-                pageCaps.Add(new Rectangle(lastX, 0, size.Width, size.Height));
-                lastX += size.Width;
+                var width = ButtonWidth(page.Title);
+                width = Math.Max(CapMinWidth, width);
+                pageCaps.Add(new Rectangle(lastX, 0, width, CapHeight));
+                lastX += width;
             }
         }
 
-        protected override void OnMouseClick(MouseEventArgs e)
+        protected override void OnMouseDown(MouseEventArgs e)
         {
             UpdateCaps();
-            for (int i = 0; i < pages.Count; ++i)
-                if (pageCaps[i].Contains(e.Location))
-                {
-                    ActiveTab = i;
-                    Refresh();
-                    return;
-                }
+            if (e.Y > CapHeight)
+                return;
+            if (e.X < Width - RightSpace)
+            {
+                for (int i = 0; i < pages.Count; ++i)
+                    if (pageCaps[i].Contains(e.Location))
+                    {
+                        ActiveTab = i;
+                        Refresh();
+                        return;
+                    }
+            }
+            else
+            {
+                if (e.X < Width - ToRightWidth)
+                    PrevPage();
+                else
+                    NextPage();
+            }
         }
     }
 
@@ -318,11 +395,13 @@ namespace XConsole
             FormBorderStyle = FormBorderStyle.None;
             SetStyle(ControlStyles.SupportsTransparentBackColor, true);
             BackColor = XColor.DefaultBack;
-            Opacity = 0.9;
+            Opacity = 0.85;
             ClientSize = new Size(800, 600);
 
             var w = (int)pen.Width;
-            control = new XTabControl(new string[] { "Tab t-a-b 1", "Tab t-a-b 2", "Tab t-a-b 3" });
+            control = new XTabControl();
+            for (int n = 1; n <= 10; ++n)
+                control.Add($"Tab {n}");
             control.Location = new Point(w, capHeight + w);
             control.Size = new Size(ClientSize.Width - 2 * w, ClientSize.Height - capHeight - 2 * w);
             Controls.Add(control);
