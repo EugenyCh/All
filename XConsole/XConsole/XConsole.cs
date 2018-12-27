@@ -153,11 +153,12 @@ namespace XConsole
         protected float penWidth = 2;
 
         public int ActiveTab = 0;
-        public int CapMinHeight = 24;
         public int CapMinWidth = 80;
         public int CapPadding = 6;
 
-        public Font CapFont = new Font(FontFamily.GenericMonospace, 16, FontStyle.Bold);
+        public Font CapFont = new Font(FontFamily.GenericMonospace, 32, FontStyle.Bold);
+
+        public int CapHeight => CapFont.Height + CapPadding * 2;
 
         public FontFamily Family
         {
@@ -253,9 +254,8 @@ namespace XConsole
                 var page = pages[i];
                 var size = TextRenderer.MeasureText(page.Title, CapFont);
                 size.Width += CapPadding * 2;
-                size.Height += CapPadding * 2;
+                size.Height = CapHeight;
                 size.Width = Math.Max(CapMinWidth, size.Width);
-                size.Height = Math.Max(CapMinHeight, size.Height);
                 var half = (int)(penWidth * 0.25) + 1;
                 var points = new Point[] {
                     new Point(lastX, half),
@@ -265,12 +265,12 @@ namespace XConsole
                 if (ActiveTab == i)
                 {
                     g.DrawLines(penActive, points);
-                    g.DrawString(page.Title, font, brushActive, lastX + CapPadding, CapPadding);
+                    g.DrawString(page.Title, CapFont, brushActive, lastX + CapPadding, CapPadding);
                 }
                 else
                 {
                     g.DrawLines(penInactive, points);
-                    g.DrawString(page.Title, font, brushInactive, lastX + CapPadding, CapPadding);
+                    g.DrawString(page.Title, CapFont, brushInactive, lastX + CapPadding, CapPadding);
                 }
                 lastX += (int)(penWidth * 0.5) + size.Width;
             }
@@ -285,9 +285,8 @@ namespace XConsole
                 lastX += (int)(penWidth * 0.25);
                 var size = TextRenderer.MeasureText(page.Title, CapFont);
                 size.Width += CapPadding * 2;
-                size.Height += CapPadding * 2;
+                size.Height = CapHeight;
                 size.Width = Math.Max(CapMinWidth, size.Width);
-                size.Height = Math.Max(CapMinHeight, size.Height);
                 pageCaps.Add(new Rectangle(lastX, 0, size.Width, size.Height));
                 lastX += size.Width;
             }
@@ -328,10 +327,11 @@ namespace XConsole
             FormBorderStyle = FormBorderStyle.None;
             SetStyle(ControlStyles.SupportsTransparentBackColor, true);
             BackColor = XColor.DefaultBack;
-            Opacity = 0.8;
+            Opacity = 0.9;
+            ClientSize = new Size(800, 600);
 
             var w = (int)pen.Width;
-            control = new XTabControl(new string[] { "Tab 1", "Tab 2", "Tab 3" });
+            control = new XTabControl(new string[] { "Tab t-a-b 1", "Tab t-a-b 2", "Tab t-a-b 3" });
             control.Location = new Point(w, capHeight + w);
             control.Size = new Size(ClientSize.Width - 2 * w, ClientSize.Height - capHeight - 2 * w);
             Controls.Add(control);
