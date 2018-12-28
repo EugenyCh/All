@@ -328,57 +328,43 @@ namespace XConsole
             var brushInactiveBack = new SolidBrush(XColor.Darking);
             var penActive = new Pen(XColor.DefaultFore, penWidth);
             var brushActive = new SolidBrush(XColor.DefaultFore);
-            var half = (int)(penWidth * 0.25) + 1;
             Point[] points;
             for (int i = 0; i < Count; ++i)
             {
                 var page = pages[i];
                 var width = ButtonWidth(page.Title);
                 width = Math.Max(CapMinWidth, width);
-                points = new Point[] {
-                    new Point(lastX, half),
-                    new Point(lastX + width, half),
-                    new Point(lastX + width, CapHeight)
-                };
+                points = XRectangle.Generate(lastX, 0, width, CapHeight, penWidth);
                 if (ActiveTab == i)
                 {
                     g.DrawLines(penActive, points);
-                    g.DrawString(page.Title, CapFont, brushActive, points[0].X + CapPadding, points[0].Y + CapPadding);
+                    g.DrawString(page.Title, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
                 }
                 else
                 {
-                    g.FillRectangle(brushInactiveBack, points[0].X, 0, width, CapHeight);
+                    g.FillRectangle(brushInactiveBack, points[1].X, 0, width, CapHeight);
                     g.DrawLines(penInactive, points);
-                    g.DrawString(page.Title, CapFont, brushInactive, points[0].X + CapPadding, points[0].Y + CapPadding);
+                    g.DrawString(page.Title, CapFont, brushInactive, points[1].X + CapPadding, points[1].Y + CapPadding);
                 }
                 lastX += width;
             }
-            points = new Point[] {
-                    new Point(lastX, half),
-                    new Point(lastX + NewTabWidth, half),
-                    new Point(lastX + NewTabWidth, CapHeight)
-                };
-            g.FillRectangle(brushInactiveBack, points[0].X, 0, NewTabWidth, CapHeight);
+            points = XRectangle.Generate(lastX, 0, NewTabWidth, CapHeight, penWidth);
+            g.FillRectangle(brushInactiveBack, points[1].X, 0, NewTabWidth, CapHeight);
             g.DrawLines(penActive, points);
-            g.DrawString(newTab, CapFont, brushActive, points[0].X + CapPadding, points[0].Y + CapPadding);
-            g.SetClip(new Rectangle(Width - RightSpace - half, 0, RightSpace + half, CapHeight));
+            g.DrawString(newTab, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
+            g.SetClip(new Rectangle(Width - RightSpace - (int)penWidth, 0, RightSpace + (int)penWidth, CapHeight));
             var bounds = g.ClipBounds;
-            points = new Point[] {
-                    new Point(Width - RightSpace, CapHeight),
-                    new Point(Width - RightSpace, half),
-                    new Point(Width - ToRightWidth, half)
-                };
-            g.FillRectangle(brushInactiveBack, points[0].X, 0, ToLeftWidth, CapHeight);
+            points = XRectangle.Generate(Width - RightSpace, 0, ToLeftWidth, CapHeight, penWidth);
+            g.FillRectangle(brushInactiveBack, points[1].X, 0, ToLeftWidth, CapHeight);
             g.DrawLines(penActive, points);
             g.DrawString(toLeft, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
-            points = new Point[] {
-                    new Point(Width - ToRightWidth, CapHeight),
-                    new Point(Width - ToRightWidth, half),
-                    new Point(Width, half)
-                };
-            g.FillRectangle(brushInactiveBack, points[0].X, 0, ToRightWidth, CapHeight);
+            points = XRectangle.Generate(Width - ToRightWidth, 0, ToRightWidth, CapHeight, penWidth);
+            g.FillRectangle(brushInactiveBack, points[1].X, 0, ToRightWidth, CapHeight);
             g.DrawLines(penActive, points);
             g.DrawString(toRight, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
+            g.ResetClip();
+            g.DrawLine(penActive, 0, CapHeight, Math.Min(pageCaps[ActiveTab].Left, Width - RightSpace) + (int)penWidth, CapHeight);
+            g.DrawLine(penActive, Math.Min(pageCaps[ActiveTab].Right, Width - RightSpace) - (int)penWidth, CapHeight, Width, CapHeight);
         }
 
         protected void UpdateCaps()
