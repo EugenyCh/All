@@ -141,12 +141,12 @@ namespace XConsole
         protected FontStyle fontStyle = FontStyle.Regular;
         protected float penWidth = 2;
         protected int firstX = 0;
-        protected int first = 0;
         protected string toLeft = "<";
         protected string toRight = ">";
         protected string newTab = "[+]";
-
-        public int ActiveTab = 0;
+        protected int activeTab = 0;
+        protected int firstPage = 0;
+        
         public int CapMinWidth = 80;
         public int CapPadding = 6;
 
@@ -157,7 +157,9 @@ namespace XConsole
         }
 
         public int ToLeftWidth => ButtonWidth(toLeft);
+
         public int ToRightWidth => ButtonWidth(toRight);
+
         public int NewTabWidth => ButtonWidth(newTab);
 
         public int RightSpace => ToLeftWidth + ToRightWidth;
@@ -166,27 +168,35 @@ namespace XConsole
 
         public int CapHeight => CapFont.Height + CapPadding * 2;
 
-        public int FirstPage => first;
-
-        public void NextPage()
+        public int ActiveTab
         {
-            first = (first + 1) % Count;
-            firstX = 0;
-            for (int i = 0; i < first; ++i)
-                firstX -= pageCaps[i].Width;
-            UpdateCaps();
-            Refresh();
+            get => activeTab;
+            set
+            {
+                activeTab = (Count + value) % Count;
+                Refresh();
+            }
         }
 
-        public void PrevPage()
+        public int FirstPage
         {
-            first = (Count + first - 1) % Count;
-            firstX = 0;
-            for (int i = 0; i < first; ++i)
-                firstX -= pageCaps[i].Width;
-            UpdateCaps();
-            Refresh();
+            get => firstPage;
+            set
+            {
+                firstPage = (Count + value) % Count;
+                firstX = 0;
+                for (int i = 0; i < firstPage; ++i)
+                    firstX -= pageCaps[i].Width;
+                UpdateCaps();
+                Refresh();
+            }
         }
+
+        public Rectangle NewButtonRect => new Rectangle(pageCaps[Count - 1].Right, 0, NewTabWidth, CapHeight);
+
+        public void NextPage() => ++FirstPage;
+
+        public void PrevPage() => --FirstPage;
 
         public FontFamily Family
         {
@@ -222,7 +232,7 @@ namespace XConsole
 
         protected void UpdateFont() => font = new Font(fontFamily, fontSize, fontStyle);
 
-        protected void FillDefault() => pages.Add(new XTabPage());
+        protected void FillDefault() => Add();
 
         public XTabControl()
         {
@@ -267,12 +277,46 @@ namespace XConsole
             UpdateCaps();
         }
 
-        public void Add() => pages.Add(new XTabPage());
-        public void Add(XTabPage newPage) => pages.Add(newPage);
-        public void Add(string newPageTitle) => pages.Add(new XTabPage(newPageTitle));
+        public void Add()
+        {
+            pages.Add(new XTabPage());
+            UpdateCaps();
+            Refresh();
+        }
+
+        public void Add(XTabPage newPage)
+        {
+            pages.Add(newPage);
+            UpdateCaps();
+            Refresh();
+        }
+
+        public void Add(string newPageTitle)
+        {
+            pages.Add(new XTabPage(newPageTitle));
+            UpdateCaps();
+            Refresh();
+        }
+
         public XTabPage this[int index] => pages[index];
-        public void Remove(XTabPage page) => pages.Remove(page);
-        public void Remove(int index) => pages.RemoveAt(index);
+
+        public void Remove(XTabPage page)
+        {
+            pages.Remove(page);
+            if (Count == 0)
+                Add();
+            UpdateCaps();
+            Refresh();
+        }
+
+        public void RemoveAt(int index)
+        {
+            pages.RemoveAt(index);
+            if (Count == 0)
+                Add();
+            UpdateCaps();
+            Refresh();
+        }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -314,6 +358,7 @@ namespace XConsole
                     new Point(lastX + NewTabWidth, half),
                     new Point(lastX + NewTabWidth, CapHeight)
                 };
+            g.FillRectangle(brushInactiveBack, points[0].X, 0, NewTabWidth, CapHeight);
             g.DrawLines(penActive, points);
             g.DrawString(newTab, CapFont, brushActive, points[0].X + CapPadding, points[0].Y + CapPadding);
             g.SetClip(new Rectangle(Width - RightSpace - half, 0, RightSpace + half, CapHeight));
@@ -323,6 +368,7 @@ namespace XConsole
                     new Point(Width - RightSpace, half),
                     new Point(Width - ToRightWidth, half)
                 };
+            g.FillRectangle(brushInactiveBack, points[0].X, 0, ToLeftWidth, CapHeight);
             g.DrawLines(penActive, points);
             g.DrawString(toLeft, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
             points = new Point[] {
@@ -330,6 +376,7 @@ namespace XConsole
                     new Point(Width - ToRightWidth, half),
                     new Point(Width, half)
                 };
+            g.FillRectangle(brushInactiveBack, points[0].X, 0, ToRightWidth, CapHeight);
             g.DrawLines(penActive, points);
             g.DrawString(toRight, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
         }
@@ -350,7 +397,6 @@ namespace XConsole
 
         protected override void OnMouseDown(MouseEventArgs e)
         {
-            UpdateCaps();
             if (e.Y > CapHeight)
                 return;
             if (e.X < Width - RightSpace)
@@ -362,6 +408,11 @@ namespace XConsole
                         Refresh();
                         return;
                     }
+                if (NewButtonRect.Contains(e.Location))
+                {
+                    Add();
+                    Refresh();
+                }
             }
             else
             {
@@ -397,6 +448,7 @@ namespace XConsole
             BackColor = XColor.DefaultBack;
             Opacity = 0.85;
             ClientSize = new Size(800, 600);
+            KeyPreview = true;
 
             var w = (int)pen.Width;
             control = new XTabControl();
@@ -423,6 +475,21 @@ namespace XConsole
         {
             if (TouchBegin.HasValue)
                 Location = new Point(Location.X + e.X - TouchBegin.Value.X, Location.Y + e.Y - TouchBegin.Value.Y);
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            switch (e.KeyCode)
+            {
+                case Keys.Tab:
+                    if (e.Modifiers.HasFlag(Keys.Control))
+                        control.FirstPage = e.Modifiers.HasFlag(Keys.Shift) ? --control.ActiveTab : ++control.ActiveTab;
+                    break;
+                case Keys.N:
+                    if (e.Modifiers.HasFlag(Keys.Control))
+                        control.Add();
+                    break;
+            }
         }
 
         public void Run()
