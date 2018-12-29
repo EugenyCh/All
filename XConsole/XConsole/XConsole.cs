@@ -8,8 +8,8 @@ namespace XConsole
     public class XChar
     {
         public char Value = '+';
-        public Color Back = XColor.DefaultBack;
-        public Color Fore = XColor.DefaultFore;
+        public Color Back = XColor.LightBack;
+        public Color Fore = XColor.LightFore;
         public FontStyle Style;
     }
 
@@ -108,11 +108,10 @@ namespace XConsole
 
     public class XColor
     {
-        public static Color DefaultBack = Color.FromArgb(255, 63, 63, 63);
-        public static Color DefaultFore = Color.FromArgb(255, 132, 170, 217);
-        public static Color InactiveFore = Color.FromArgb(255, 80, 96, 112);
-        public static Color Lighting = Color.FromArgb(64, 255, 255, 255);
-        public static Color Darking = Color.FromArgb(64, 0, 0, 0);
+        public static Color LightBack = Color.FromArgb(0, 0, 0, 0);
+        public static Color LightFore = Color.FromArgb(255, 132, 170, 217);
+        public static Color DarkBack = Color.FromArgb(255, 63, 63, 63);
+        public static Color DarkFore = Color.FromArgb(255, 80, 96, 112);
     }
 
     public class XRectangle
@@ -131,42 +130,133 @@ namespace XConsole
         }
     }
 
+    public class XButton : Control
+    {
+        public string Text = "Button";
+        public Color DefaultBack = XColor.DarkBack;
+        public Color DefaultFore = XColor.DarkFore;
+        public Color OverBack = XColor.LightBack;
+        public Color OverFore = XColor.LightFore;
+        public byte Mask = 0x0F;
+        public float BorderWidth = 2.0f;
+        public Font TextFont = new Font(FontFamily.GenericMonospace, 13, FontStyle.Bold);
+        public int TextPadding = 6;
+        public int MinWidth = 48;
+        public Action ActivateAction;
+
+        public int GetWidth() => Math.Max(TextRenderer.MeasureText(Text, TextFont).Width + (TextPadding << 1) + (int)(BorderWidth * 2), MinWidth);
+        public int GetHeight() => TextRenderer.MeasureText(Text, TextFont).Height + (TextPadding << 1) + (int)(BorderWidth * 2);
+
+        public XButton()
+        {
+            Width = GetWidth();
+            Height = GetHeight();
+        }
+
+        public XButton(string text)
+        {
+            Text = text;
+            Width = GetWidth();
+            Height = GetHeight();
+        }
+
+        public XButton(string text, byte mask)
+        {
+            Text = text;
+            Mask = mask;
+            Width = GetWidth();
+            Height = GetHeight();
+        }
+
+        protected bool over = false;
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            var brushBack = new SolidBrush(over ? OverBack : DefaultBack);
+            var penFore = new Pen(over ? OverFore : DefaultFore, BorderWidth);
+            var brushFore = new SolidBrush(over ? OverFore : DefaultFore);
+            var halfDown = (int)BorderWidth / 2;
+            var halfUp = (int)BorderWidth - halfDown;
+            g.FillRectangle(brushBack, 0, 0, Width, Height);
+            if ((Mask & 0x08) > 0)
+                g.DrawLine(penFore, halfDown, halfDown, halfDown, Height - halfUp);
+            if ((Mask & 0x04) > 0)
+                g.DrawLine(penFore, halfDown, halfDown, Width - halfUp, halfDown);
+            if ((Mask & 0x02) > 0)
+                g.DrawLine(penFore, Width - halfUp, halfDown, Width - halfUp, Height - halfUp);
+            if ((Mask & 0x01) > 0)
+                g.DrawLine(penFore, halfDown, Height - halfUp, Width - halfUp, Height - halfUp);
+            g.DrawString(Text, TextFont, brushFore, (int)BorderWidth + TextPadding, (int)BorderWidth + TextPadding);
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            over = true;
+            Refresh();
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            over = false;
+            Refresh();
+        }
+        
+        protected override void OnMouseClick(MouseEventArgs e) => ActivateAction?.Invoke();
+    }
+
+    public class XHorizontalList<T> : Control where T : Control
+    {
+        protected Panel panel = new Panel();
+        protected List<T> elements = new List<T>();
+
+        public void UpdateMetrics()
+        {
+            Console.WriteLine(Count);
+            Controls.Clear();
+            var lastLocation = Location;
+            foreach (var control in elements)
+            {
+                var next = control;
+                next.Location = lastLocation;
+                lastLocation.X += next.Width;
+                Controls.Add(next);
+            }
+        }
+
+        public int Count => elements.Count;
+        public T this[int index] => elements[index];
+
+        public void Add(T control) => elements.Add(control);
+        public void AddRange(IEnumerable<T> controls) => elements.AddRange(controls);
+        public void Insert(int index, T control) => elements.Insert(index, control);
+        public void InsertRange(int index, IEnumerable<T> controls) => elements.InsertRange(index, controls);
+        public bool Remove(T control) => elements.Remove(control);
+        public void RemoveAt(int index) => elements.RemoveAt(index);
+        public void RemoveRange(int index, int count) => elements.RemoveRange(index, count);
+        public void Clear() => elements.Clear();
+    }
+
     public class XTabControl : Control
     {
+        protected XHorizontalList<XButton> buttons = new XHorizontalList<XButton>();
         protected List<XTabPage> pages = new List<XTabPage>();
-        protected List<Rectangle> pageCaps;
         protected Font font;
         protected FontFamily fontFamily = FontFamily.GenericMonospace;
         protected float fontSize = 13;
         protected FontStyle fontStyle = FontStyle.Regular;
-        protected float penWidth = 2;
+        protected float penWidth = 2.0f;
         protected int firstX = 0;
-        protected string toLeft = "<";
-        protected string toRight = ">";
-        protected string newTab = "[+]";
+        protected XButton ToLeft = new XButton("<");
+        protected XButton ToRight = new XButton(">");
+        protected XButton NewTab = new XButton("[+]");
+        protected XButton RemoveTab = new XButton("\u00D7");
         protected int activeTab = 0;
         protected int firstPage = 0;
-        
-        public int CapMinWidth = 80;
-        public int CapPadding = 6;
+        protected static string GenTitle(int id, string title) => $"<{id + 1}> {title}";
 
-        public int ButtonWidth(string s)
-        {
-            var width = TextRenderer.MeasureText(s, CapFont).Width;
-            return width + CapPadding * 2;
-        }
-
-        public int ToLeftWidth => ButtonWidth(toLeft);
-
-        public int ToRightWidth => ButtonWidth(toRight);
-
-        public int NewTabWidth => ButtonWidth(newTab);
-
-        public int RightSpace => ToLeftWidth + ToRightWidth;
-
-        public Font CapFont = new Font(FontFamily.GenericMonospace, 13, FontStyle.Bold);
-
-        public int CapHeight => CapFont.Height + CapPadding * 2;
+        protected void UpdateFont() => font = new Font(fontFamily, fontSize, fontStyle);
+        protected void FillDefault() => Add();
 
         public int ActiveTab
         {
@@ -186,17 +276,12 @@ namespace XConsole
                 firstPage = (Count + value) % Count;
                 firstX = 0;
                 for (int i = 0; i < firstPage; ++i)
-                    firstX -= pageCaps[i].Width;
-                UpdateCaps();
+                    firstX -= buttons[i].Width;
+                for (int i = 0; i < Count; ++i)
+                    buttons[i].Left += firstX;
                 Refresh();
             }
         }
-
-        public Rectangle NewButtonRect => new Rectangle(pageCaps[Count - 1].Right, 0, NewTabWidth, CapHeight);
-
-        public void NextPage() => ++FirstPage;
-
-        public void PrevPage() => --FirstPage;
 
         public FontFamily Family
         {
@@ -228,73 +313,93 @@ namespace XConsole
             }
         }
 
+        public void NextPage() => ++FirstPage;
+        public void PrevPage() => --FirstPage;
         public int Count => pages.Count;
 
-        protected void UpdateFont() => font = new Font(fontFamily, fontSize, fontStyle);
-
-        protected void FillDefault() => Add();
+        protected void Initialize()
+        {
+            Controls.Add(buttons);
+            buttons.Add(NewTab);
+            Controls.Add(ToLeft);
+            Controls.Add(ToRight);
+        }
 
         public XTabControl()
         {
+            Initialize();
             UpdateFont();
             FillDefault();
-            UpdateCaps();
         }
 
         public XTabControl(XTabPage page)
         {
+            Initialize();
             UpdateFont();
             if (page == null)
                 FillDefault();
             else
-                pages.Add(page);
-            UpdateCaps();
+                Add(page);
         }
 
-        public XTabControl(string newTabTitle) : this()
+        public XTabControl(string newTabTitle)
         {
+            Initialize();
             UpdateFont();
-            pages.Add(new XTabPage(newTabTitle));
-            UpdateCaps();
+            Add(new XTabPage(newTabTitle));
         }
 
         public XTabControl(IEnumerable<XTabPage> list)
         {
+            Initialize();
             UpdateFont();
-            pages.AddRange(list);
+            foreach (var title in list)
+                Add(title);
             if (pages.Count == 0)
                 FillDefault();
-            UpdateCaps();
         }
 
         public XTabControl(IEnumerable<string> list)
         {
+            Initialize();
             UpdateFont();
             foreach (var title in list)
-                pages.Add(new XTabPage(title));
+                Add(new XTabPage(title));
             if (pages.Count == 0)
                 FillDefault();
-            UpdateCaps();
         }
 
         public void Add()
         {
-            pages.Add(new XTabPage());
-            UpdateCaps();
+            var next = new XTabPage();
+            pages.Add(next);
+            buttons.Insert(buttons.Count - 1, new XButton
+            {
+                Text = GenTitle(Count - 1, next.Title),
+                Mask = 0x0E
+            });
             Refresh();
         }
 
         public void Add(XTabPage newPage)
         {
             pages.Add(newPage);
-            UpdateCaps();
+            buttons.Insert(buttons.Count - 1, new XButton
+            {
+                Text = GenTitle(Count - 1, newPage.Title),
+                Mask = 0x0E
+            });
             Refresh();
         }
 
         public void Add(string newPageTitle)
         {
             pages.Add(new XTabPage(newPageTitle));
-            UpdateCaps();
+            buttons.Insert(buttons.Count - 1, new XButton
+            {
+                Text = GenTitle(Count - 1, newPageTitle),
+                Mask = 0x0E
+            });
             Refresh();
         }
 
@@ -302,111 +407,28 @@ namespace XConsole
 
         public void Remove(XTabPage page)
         {
-            pages.Remove(page);
+            var pageId = pages.IndexOf(page);
+            buttons.RemoveAt(pageId);
+            pages.RemoveAt(pageId);
             if (Count == 0)
                 Add();
-            UpdateCaps();
             Refresh();
         }
 
         public void RemoveAt(int index)
         {
+            buttons.RemoveAt(index);
             pages.RemoveAt(index);
             if (Count == 0)
                 Add();
-            UpdateCaps();
             Refresh();
         }
 
-        protected override void OnPaint(PaintEventArgs e)
+        public void UpdateMetrics()
         {
-            var g = e.Graphics;
-            g.SetClip(new Rectangle(0, 0, Width - RightSpace, CapHeight));
-            var lastX = firstX;
-            var penInactive = new Pen(XColor.InactiveFore, penWidth);
-            var brushInactive = new SolidBrush(XColor.InactiveFore);
-            var brushInactiveBack = new SolidBrush(XColor.Darking);
-            var penActive = new Pen(XColor.DefaultFore, penWidth);
-            var brushActive = new SolidBrush(XColor.DefaultFore);
-            Point[] points;
-            for (int i = 0; i < Count; ++i)
-            {
-                var page = pages[i];
-                var width = ButtonWidth(page.Title);
-                width = Math.Max(CapMinWidth, width);
-                points = XRectangle.Generate(lastX, 0, width, CapHeight, penWidth);
-                if (ActiveTab == i)
-                {
-                    g.DrawLines(penActive, points);
-                    g.DrawString(page.Title, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
-                }
-                else
-                {
-                    g.FillRectangle(brushInactiveBack, points[1].X, 0, width, CapHeight);
-                    g.DrawLines(penInactive, points);
-                    g.DrawString(page.Title, CapFont, brushInactive, points[1].X + CapPadding, points[1].Y + CapPadding);
-                }
-                lastX += width;
-            }
-            points = XRectangle.Generate(lastX, 0, NewTabWidth, CapHeight, penWidth);
-            g.FillRectangle(brushInactiveBack, points[1].X, 0, NewTabWidth, CapHeight);
-            g.DrawLines(penActive, points);
-            g.DrawString(newTab, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
-            g.SetClip(new Rectangle(Width - RightSpace - (int)penWidth, 0, RightSpace + (int)penWidth, CapHeight));
-            var bounds = g.ClipBounds;
-            points = XRectangle.Generate(Width - RightSpace, 0, ToLeftWidth, CapHeight, penWidth);
-            g.FillRectangle(brushInactiveBack, points[1].X, 0, ToLeftWidth, CapHeight);
-            g.DrawLines(penActive, points);
-            g.DrawString(toLeft, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
-            points = XRectangle.Generate(Width - ToRightWidth, 0, ToRightWidth, CapHeight, penWidth);
-            g.FillRectangle(brushInactiveBack, points[1].X, 0, ToRightWidth, CapHeight);
-            g.DrawLines(penActive, points);
-            g.DrawString(toRight, CapFont, brushActive, points[1].X + CapPadding, points[1].Y + CapPadding);
-            g.ResetClip();
-            g.DrawLine(penActive, 0, CapHeight, Math.Min(pageCaps[ActiveTab].Left, Width - RightSpace) + (int)penWidth, CapHeight);
-            g.DrawLine(penActive, Math.Min(pageCaps[ActiveTab].Right, Width - RightSpace) - (int)penWidth, CapHeight, Width, CapHeight);
-        }
-
-        protected void UpdateCaps()
-        {
-            var lastX = firstX;
-            pageCaps = new List<Rectangle>();
-            foreach (var page in pages)
-            {
-                lastX += (int)(penWidth * 0.25);
-                var width = ButtonWidth(page.Title);
-                width = Math.Max(CapMinWidth, width);
-                pageCaps.Add(new Rectangle(lastX, 0, width, CapHeight));
-                lastX += width;
-            }
-        }
-
-        protected override void OnMouseDown(MouseEventArgs e)
-        {
-            if (e.Y > CapHeight)
-                return;
-            if (e.X < Width - RightSpace)
-            {
-                for (int i = 0; i < pages.Count; ++i)
-                    if (pageCaps[i].Contains(e.Location))
-                    {
-                        ActiveTab = i;
-                        Refresh();
-                        return;
-                    }
-                if (NewButtonRect.Contains(e.Location))
-                {
-                    Add();
-                    Refresh();
-                }
-            }
-            else
-            {
-                if (e.X < Width - ToRightWidth)
-                    PrevPage();
-                else
-                    NextPage();
-            }
+            buttons.UpdateMetrics();
+            buttons.Width = Width - ToLeft.Width - ToRight.Width;
+            buttons.Height = NewTab.Height;
         }
     }
 
@@ -423,7 +445,7 @@ namespace XConsole
     {
         protected XTabControl control;
         protected int capHeight = 32;
-        protected Pen pen = new Pen(XColor.DefaultFore, 2);
+        protected Pen pen = new Pen(XColor.LightFore, 2);
 
         protected Point? TouchBegin { get; set; }
 
@@ -431,17 +453,18 @@ namespace XConsole
         {
             FormBorderStyle = FormBorderStyle.None;
             SetStyle(ControlStyles.SupportsTransparentBackColor, true);
-            BackColor = XColor.DefaultBack;
+            BackColor = XColor.DarkBack;
             Opacity = 0.85;
             ClientSize = new Size(800, 600);
             KeyPreview = true;
 
             var w = (int)pen.Width;
-            control = new XTabControl();
+            control = new XTabControl("---");
             for (int n = 1; n <= 10; ++n)
                 control.Add($"Tab {n}");
             control.Location = new Point(w, capHeight + w);
             control.Size = new Size(ClientSize.Width - 2 * w, ClientSize.Height - capHeight - 2 * w);
+            control.UpdateMetrics();
             Controls.Add(control);
         }
 
