@@ -132,7 +132,7 @@ namespace XConsole
 
     public class XButton : Control
     {
-        public string Text = "Button";
+        public new string Text = "Button";
         public Color DefaultBack = XColor.DarkBack;
         public Color DefaultFore = XColor.DarkFore;
         public Color OverBack = XColor.LightBack;
@@ -176,17 +176,16 @@ namespace XConsole
             var brushBack = new SolidBrush(over ? OverBack : DefaultBack);
             var penFore = new Pen(over ? OverFore : DefaultFore, BorderWidth);
             var brushFore = new SolidBrush(over ? OverFore : DefaultFore);
-            var halfDown = (int)BorderWidth / 2;
-            var halfUp = (int)BorderWidth - halfDown;
+            var space = (int)(BorderWidth * 0.5);
             g.FillRectangle(brushBack, 0, 0, Width, Height);
             if ((Mask & 0x08) > 0)
-                g.DrawLine(penFore, halfDown, halfDown, halfDown, Height - halfUp);
+                g.DrawLine(penFore, space, 0, space, Height);
             if ((Mask & 0x04) > 0)
-                g.DrawLine(penFore, halfDown, halfDown, Width - halfUp, halfDown);
+                g.DrawLine(penFore, 0, space, Width, space);
             if ((Mask & 0x02) > 0)
-                g.DrawLine(penFore, Width - halfUp, halfDown, Width - halfUp, Height - halfUp);
+                g.DrawLine(penFore, Width - space, 0, Width - space, Height);
             if ((Mask & 0x01) > 0)
-                g.DrawLine(penFore, halfDown, Height - halfUp, Width - halfUp, Height - halfUp);
+                g.DrawLine(penFore, 0, Height - space, Width, Height - space);
             g.DrawString(Text, TextFont, brushFore, (int)BorderWidth + TextPadding, (int)BorderWidth + TextPadding);
         }
 
@@ -207,14 +206,15 @@ namespace XConsole
 
     public class XHorizontalList<T> : Control where T : Control
     {
-        protected Panel panel = new Panel();
         protected List<T> elements = new List<T>();
+        protected int xOffset = 0;
 
         public void UpdateMetrics()
         {
             Console.WriteLine(Count);
             Controls.Clear();
             var lastLocation = Location;
+            lastLocation.X += xOffset;
             foreach (var control in elements)
             {
                 var next = control;
@@ -224,9 +224,21 @@ namespace XConsole
             }
         }
 
+        public int XOffset
+        {
+            get => xOffset;
+            set
+            {
+                var delta = value - xOffset;
+                foreach (var control in elements)
+                    control.Left += delta;
+                xOffset = value;
+            }
+        }
+
+        public void ScrollTo(int index) => XOffset -= elements[index].Left;
         public int Count => elements.Count;
         public T this[int index] => elements[index];
-
         public void Add(T control) => elements.Add(control);
         public void AddRange(IEnumerable<T> controls) => elements.AddRange(controls);
         public void Insert(int index, T control) => elements.Insert(index, control);
@@ -253,6 +265,7 @@ namespace XConsole
         protected XButton RemoveTab = new XButton("\u00D7");
         protected int activeTab = 0;
         protected int firstPage = 0;
+        protected byte capMask = 0x06;
         protected static string GenTitle(int id, string title) => $"<{id + 1}> {title}";
 
         protected void UpdateFont() => font = new Font(fontFamily, fontSize, fontStyle);
@@ -274,11 +287,7 @@ namespace XConsole
             set
             {
                 firstPage = (Count + value) % Count;
-                firstX = 0;
-                for (int i = 0; i < firstPage; ++i)
-                    firstX -= buttons[i].Width;
-                for (int i = 0; i < Count; ++i)
-                    buttons[i].Left += firstX;
+                buttons.ScrollTo(firstPage);
                 Refresh();
             }
         }
@@ -323,6 +332,15 @@ namespace XConsole
             buttons.Add(NewTab);
             Controls.Add(ToLeft);
             Controls.Add(ToRight);
+            ToLeft.ActivateAction = PrevPage;
+            ToRight.ActivateAction = NextPage;
+            NewTab.ActivateAction = AddNew;
+        }
+
+        public void AddNew()
+        {
+            Add();
+            buttons.UpdateMetrics();
         }
 
         public XTabControl()
@@ -376,7 +394,7 @@ namespace XConsole
             buttons.Insert(buttons.Count - 1, new XButton
             {
                 Text = GenTitle(Count - 1, next.Title),
-                Mask = 0x0E
+                Mask = capMask
             });
             Refresh();
         }
@@ -387,7 +405,7 @@ namespace XConsole
             buttons.Insert(buttons.Count - 1, new XButton
             {
                 Text = GenTitle(Count - 1, newPage.Title),
-                Mask = 0x0E
+                Mask = capMask
             });
             Refresh();
         }
@@ -398,7 +416,7 @@ namespace XConsole
             buttons.Insert(buttons.Count - 1, new XButton
             {
                 Text = GenTitle(Count - 1, newPageTitle),
-                Mask = 0x0E
+                Mask = capMask
             });
             Refresh();
         }
@@ -429,6 +447,8 @@ namespace XConsole
             buttons.UpdateMetrics();
             buttons.Width = Width - ToLeft.Width - ToRight.Width;
             buttons.Height = NewTab.Height;
+            ToRight.Left = Width - ToRight.Width;
+            ToLeft.Left = ToRight.Left - ToLeft.Width;
         }
     }
 
