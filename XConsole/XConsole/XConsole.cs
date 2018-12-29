@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -134,7 +135,7 @@ namespace XConsole
         public float BorderWidth = 2.0f;
         public Font TextFont = new Font(FontFamily.GenericMonospace, 13, FontStyle.Bold);
         public int TextPadding = 6;
-        public Action<XButton> ActivateAction;
+        public Action<XButton> ClickAction;
         public bool Active = false;
 
         public int GetWidth() => TextRenderer.MeasureText(Text, TextFont).Width + (TextPadding << 1) + (int)(BorderWidth * 2);
@@ -142,20 +143,7 @@ namespace XConsole
 
         protected bool over = false;
 
-        public XButton()
-        {
-            Width = GetWidth();
-            Height = GetHeight();
-        }
-
-        public XButton(string text)
-        {
-            Text = text;
-            Width = GetWidth();
-            Height = GetHeight();
-        }
-
-        public XButton(string text, byte mask)
+        public XButton(string text = "", byte mask = 0x0F)
         {
             Text = text;
             Mask = mask;
@@ -194,10 +182,10 @@ namespace XConsole
             Refresh();
         }
         
-        protected override void OnMouseClick(MouseEventArgs e) => ActivateAction?.Invoke(this);
+        protected override void OnMouseClick(MouseEventArgs e) => ClickAction?.Invoke(this);
     }
 
-    public class XHorizontalList<T> : Control where T : Control
+    public class XHorizontalList<T> : Control, IEnumerable where T : Control
     {
         protected List<T> elements = new List<T>();
         protected int xOffset = 0;
@@ -240,11 +228,49 @@ namespace XConsole
         public void RemoveAt(int index) => elements.RemoveAt(index);
         public void RemoveRange(int index, int count) => elements.RemoveRange(index, count);
         public void Clear() => elements.Clear();
+        public IEnumerator GetEnumerator() => elements.GetEnumerator();
+    }
+
+    public class XCaptionButton : Control
+    {
+        public XButton CaptionButton;
+        public XButton ClosingButton;
+        public void UpdateMetrics()
+        {
+            Controls.Clear();
+            CaptionButton.Location = Location;
+            Width = CaptionButton.Width;
+            Height = CaptionButton.Height;
+            Controls.Add(CaptionButton);
+            if (ClosingButton != null)
+            {
+                ClosingButton.Left = CaptionButton.Right;
+                ClosingButton.Top = Top;
+                Width += ClosingButton.Width;
+                Controls.Add(ClosingButton);
+            }
+        }
+        public XCaptionButton(string text = "", bool closable = false, byte mask = 0x0C)
+        {
+            CaptionButton = new XButton(text, mask);
+            if (closable)
+                ClosingButton = new XButton("\u00D7", 0x06);
+            UpdateMetrics();
+        }
+        public bool Active
+        {
+            get => CaptionButton.Active;
+            set
+            {
+                CaptionButton.Active = value;
+                ClosingButton.Active = value;
+            }
+        }
     }
 
     public class XTabControl : Control
     {
-        protected XHorizontalList<XButton> buttons = new XHorizontalList<XButton>();
+        protected XHorizontalList<XCaptionButton> buttons = new XHorizontalList<XCaptionButton>();
         protected List<XTabPage> pages = new List<XTabPage>();
         protected Font font;
         protected FontFamily fontFamily = FontFamily.GenericMonospace;
@@ -252,17 +278,17 @@ namespace XConsole
         protected FontStyle fontStyle = FontStyle.Regular;
         protected float penWidth = 2.0f;
         protected int firstX = 0;
-        protected XButton ToLeft = new XButton("<");
-        protected XButton ToRight = new XButton(">");
-        protected XButton NewTab = new XButton("[+]");
-        protected XButton RemoveTab = new XButton("\u00D7");
+        protected XButton ToLeft = new XButton("<", 0x0C);
+        protected XButton ToRight = new XButton(">", 0x06);
+        protected XCaptionButton NewTab = new XCaptionButton("[+]", false, 0x06);
         protected int activeTab = 0;
         protected int firstPage = 0;
-        protected byte capMask = 0x0E;
+        protected int lastNumber = -1;
         protected static string GenTitle(int id, string title) => $"<{id + 1}> {title}";
 
         protected void UpdateFont() => font = new Font(fontFamily, fontSize, fontStyle);
         protected void FillDefault() => Add();
+        protected int NextNumber => ++lastNumber;
 
         public int ActiveTab
         {
@@ -317,10 +343,18 @@ namespace XConsole
             }
         }
 
-        public void NextPage(XButton buttton) => ++FirstPage;
-        public void PrevPage(XButton buttton) => --FirstPage;
-        public void Add(XButton buttton) => Add();
-        public void OpenTab(XButton button) => ActiveTab = buttons.IndexOf(button);
+        public void NextPage(XButton sender) => ++FirstPage;
+        public void PrevPage(XButton sender) => --FirstPage;
+        public void Add(XButton sender) => Add();
+        public void OpenTab(XButton sender)
+        {
+            for (int i = 0; i < Count; ++i)
+                if (buttons[i].CaptionButton == sender)
+                {
+                    ActiveTab = i;
+                    break;
+                }
+        }
         public int Count => pages.Count;
 
         protected void Initialize()
@@ -329,9 +363,9 @@ namespace XConsole
             buttons.Add(NewTab);
             Controls.Add(ToLeft);
             Controls.Add(ToRight);
-            ToLeft.ActivateAction = PrevPage;
-            ToRight.ActivateAction = NextPage;
-            NewTab.ActivateAction = Add;
+            ToLeft.ClickAction = PrevPage;
+            ToRight.ClickAction = NextPage;
+            NewTab.CaptionButton.ClickAction = Add;
         }
 
         public XTabControl()
@@ -382,36 +416,33 @@ namespace XConsole
         {
             var next = new XTabPage();
             pages.Add(next);
-            var button = new XButton(GenTitle(Count - 1, next.Title), capMask)
-            {
-                ActivateAction = OpenTab
-            };
+            var button = new XCaptionButton(GenTitle(NextNumber, next.Title), true);
+            button.CaptionButton.ClickAction = OpenTab;
+            button.ClosingButton.ClickAction = Remove;
             buttons.Insert(buttons.Count - 1, button);
-            buttons.UpdateMetrics();
+            UpdateMetrics();
             Refresh();
         }
 
         public void Add(XTabPage newPage)
         {
             pages.Add(newPage);
-            var button = new XButton(GenTitle(Count - 1, newPage.Title), capMask)
-            {
-                ActivateAction = OpenTab
-            };
+            var button = new XCaptionButton(GenTitle(NextNumber, newPage.Title), true);
+            button.CaptionButton.ClickAction = OpenTab;
+            button.ClosingButton.ClickAction = Remove;
             buttons.Insert(buttons.Count - 1, button);
-            buttons.UpdateMetrics();
+            UpdateMetrics();
             Refresh();
         }
 
         public void Add(string newPageTitle)
         {
             pages.Add(new XTabPage(newPageTitle));
-            var button = new XButton(GenTitle(Count - 1, newPageTitle), capMask)
-            {
-                ActivateAction = OpenTab
-            };
+            var button = new XCaptionButton(GenTitle(NextNumber, newPageTitle), true);
+            button.CaptionButton.ClickAction = OpenTab;
+            button.ClosingButton.ClickAction = Remove;
             buttons.Insert(buttons.Count - 1, button);
-            buttons.UpdateMetrics();
+            UpdateMetrics();
             Refresh();
         }
 
@@ -419,31 +450,51 @@ namespace XConsole
 
         public void Remove(XTabPage page)
         {
-            var pageId = pages.IndexOf(page);
-            if (pageId == ActiveTab && ActiveTab > 0)
-                --ActiveTab;
-            buttons.RemoveAt(pageId);
-            pages.RemoveAt(pageId);
-            if (Count == 0)
-                Add();
-            buttons.UpdateMetrics();
-            Refresh();
-        }
-
-        public void RemoveAt(int index)
-        {
-            if (index == ActiveTab && ActiveTab > 0)
+            var index = pages.IndexOf(page);
+            if (ActiveTab > index)
                 --ActiveTab;
             buttons.RemoveAt(index);
             pages.RemoveAt(index);
             if (Count == 0)
                 Add();
-            buttons.UpdateMetrics();
+            UpdateMetrics();
+            Refresh();
+        }
+
+        public void Remove(XButton button)
+        {
+            int index;
+            for (index = 0; index < Count; ++index)
+                if (buttons[index].ClosingButton == button)
+                    break;
+            if (index < Count)
+            {
+                if (ActiveTab > index)
+                    --ActiveTab;
+                buttons.RemoveAt(index);
+                pages.RemoveAt(index);
+                if (Count == 0)
+                    Add();
+                UpdateMetrics();
+                Refresh();
+            }
+        }
+
+        public void RemoveAt(int index)
+        {
+            buttons.RemoveAt(index);
+            if (ActiveTab > index)
+                --ActiveTab;
+            pages.RemoveAt(index);
+            if (Count == 0)
+                Add();
+            UpdateMetrics();
             Refresh();
         }
 
         public void UpdateMetrics()
         {
+            buttons.UpdateMetrics();
             buttons.Width = Width - ToLeft.Width - ToRight.Width;
             buttons.Height = NewTab.Height;
             ToRight.Left = Width - ToRight.Width;
