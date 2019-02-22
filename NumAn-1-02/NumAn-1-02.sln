@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28407.52
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NumAn-1-02", "NumAn-1-02\NumAn-1-02.csproj", "{5DA09EFD-9026-4342-9718-2F444A228835}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5DA09EFD-9026-4342-9718-2F444A228835}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5DA09EFD-9026-4342-9718-2F444A228835}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5DA09EFD-9026-4342-9718-2F444A228835}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5DA09EFD-9026-4342-9718-2F444A228835}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {47B777CC-C413-47FE-9F52-4B2E3CB0A83B}
+	EndGlobalSection
+EndGlobal
